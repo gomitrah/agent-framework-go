@@ -398,6 +398,14 @@ func (w *mcpWrapper) Call(ctx context.Context, args string) (any, error) {
 	}
 
 	contents := mcpCallToolResultToAgentContent(result)
+
+	if result.IsError {
+		// Content is still returned so the model can see the failure
+		// text and self-correct — but err is now non-nil so callers
+		// that check err (retry logic, approval gates, tracing) can
+		// tell this was a refusal/failure, not a success.
+		return contents, fmt.Errorf("MCP tool call reported failure: %s", jsonText(result))
+	}
 	if contents == nil {
 		return nil, nil
 	}

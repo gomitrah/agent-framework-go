@@ -71,9 +71,18 @@ func TestCallPreservesMCPErrorResult(t *testing.T) {
 	}
 
 	result, err := funcTool.Call(ctx, `{}`)
-	if err != nil {
-		t.Fatalf("Call() error = %v", err)
+	// A server-reported failure (IsError: true) must now surface as a
+	// non-nil error, so callers that gate on err (retry logic, approval
+	// gates, tracing) can tell this was a refusal/failure and not a success.
+	if err == nil {
+		t.Fatal("Call() error = nil, want non-nil error for IsError result")
 	}
+	if !strings.Contains(err.Error(), "friendly failure") || !strings.Contains(err.Error(), "bad_input") {
+		t.Fatalf("err = %q, want it to surface the failure details", err.Error())
+	}
+
+	// Content must still be returned alongside the error so the model can
+	// see the failure text and self-correct.
 	contents, ok := result.([]message.Content)
 	if !ok {
 		t.Fatalf("Call() result is %T, want []message.Content", result)
